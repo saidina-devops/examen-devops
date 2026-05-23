@@ -1,77 +1,46 @@
-name: CI-CD Docker Pipeline
+name: Trivy Security Scan
 
 on:
   push:
     branches:
-      - main
+      - trivy
 
 env:
-  IMAGE_NAME: TO_BE_REPLACE
-  IMAGE_TAG: TO_BE_REPLACE
-  DOCKER_REGISTRY: TO_BE_REPLACE
+  IMAGE_NAME: examen-devops
+  IMAGE_TAG: latest
+  DOCKER_REGISTRY: ditinamouhamed
 
 jobs:
-
-  # ===============================
-  # JOB 1 - CI : BUILD + PUSH + SCAN
-  # ===============================
-  ci:
+  trivy-scan:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: Display variables
-        run: |
-          echo "IMAGE_NAME: $IMAGE_NAME"
-          echo "IMAGE_TAG: $IMAGE_TAG"
-          echo "DOCKER_REGISTRY: $DOCKER_REGISTRY"
-
       - name: Login to Docker Hub
         run: |
-          echo "TO_BE_REPLACE" | \
-          docker login -u "TO_BE_REPLACE" --password-stdin
+          echo "${{ secrets.DOCKER_PASSWORD }}" | \
+          docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-      - name: Build Docker image
+      - name: Pull Docker image
         run: |
-          docker build -t TO_BE_REPLACE/TO_BE_REPLACE:TO_BE_REPLACE .
+          docker pull $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
 
-      - name: Verify image
+      - name: Installer Trivy
         run: |
-          docker image ls | grep TO_BE_REPLACE
+          wget -qO- https://github.com/aquasecurity/trivy/releases/latest/download/trivy_Linux-64bit.tar.gz | tar xz
+          sudo mv trivy /usr/local/bin/
+          trivy --version
 
-      - name: Push Docker image
+      - name: Scanner l'image avec Trivy
         run: |
-          docker push TO_BE_REPLACE/TO_BE_REPLACE:TO_BE_REPLACE
+          trivy image --severity HIGH,CRITICAL \
+            --output trivy-report.txt \
+            $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+          cat trivy-report.txt
 
-  # ===============================
-  # JOB 2 - CD : DEPLOY
-  # ===============================
-  deploy:
-    needs: ci
-    runs-on: runner-lab
-
-    steps:
-      - name: Pull latest image
-        run: |
-          echo "Hello deploy"
-
-      - name: Pull latest image
-        run: |
-          docker pull TO_BE_REPLACE/TO_BE_REPLACE:TO_BE_REPLACE
-
-      - name: Stop existing container
-        run: |
-          docker stop ci-app || true
-
-      - name: Remove old container
-        run: |
-          docker rm ci-app || true
-
-      - name: Run new container
-        run: |
-          docker run -d \
-            -p 80:80 \
-            --name ci-app \
-            TO_BE_REPLACE/TO_BE_REPLACE:TO_BE_REPLACE
+      - name: Sauvegarder le rapport Trivy
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report
+          path: trivy-report.txt
