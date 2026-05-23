@@ -1,9 +1,9 @@
-name: Trivy Security Scan
+name: CI-CD Docker Pipeline
 
 on:
   push:
     branches:
-      - trivy
+      - main
 
 env:
   IMAGE_NAME: examen-devops
@@ -11,10 +11,7 @@ env:
   DOCKER_REGISTRY: saidinamouhamed
 
 jobs:
-  # ===============================
-  # JOB - SECURITY SCAN TRIVY
-  # ===============================
-  trivy-scan:
+  ci:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source code
@@ -22,28 +19,16 @@ jobs:
 
       - name: Login to Docker Hub
         run: |
-          echo "${{ secrets.DOCKER_PASSWORD }}" | \
-          docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-      - name: Pull Docker image
+      - name: Build Docker image
         run: |
-          docker pull $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+          docker build -t $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG .
 
-      - name: Install Trivy
+      - name: Verify image
         run: |
-          wget -qO- https://github.com/aquasecurity/trivy/releases/latest/download/trivy_Linux-64bit.tar.gz | tar xz
-          sudo mv trivy /usr/local/bin/
-          trivy --version
+          docker image ls | grep $IMAGE_NAME
 
-      - name: Scan image with Trivy
+      - name: Push Docker image
         run: |
-          trivy image --severity HIGH,CRITICAL \
-            --output trivy-report.txt \
-            $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
-          cat trivy-report.txt
-
-      - name: Upload Trivy report
-        uses: actions/upload-artifact@v4
-        with:
-          name: trivy-report
-          path: trivy-report.txt
+          docker push $DOCKER_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
