@@ -8,7 +8,7 @@ on:
 env:
   IMAGE_NAME: examen-devops
   IMAGE_TAG: latest
-  DOCKER_REGISTRY: ditinamouhamed
+  DOCKER_REGISTRY: saidinamouhamed
 
 jobs:
   trivy-scan:
